@@ -1,0 +1,63 @@
+#include <SoftwareSerial.h> //Module used to communicate with GSM, GPS
+#include <PulseSensorPlayground.h> //Module used to implement Pulse sensor
+#include <TinyGPS++.h> //Library which implements GPS 
+
+
+#define button 4 //Button is connected to Digital Pin 4 on Arduino board
+#define pressure 5 //Pressure Sensor is connected to Digital Pin 5 on Arduino board
+#define temp 6 //Temperature Sensor is connected to Digital Pin 5 on Arduino board
+const int buzzer = 7; //Buzzer is connected  Pin 7
+const int PulseWire = 0; //Pulse Sensor connected to Analog Pin 0 on Arduino board
+#define USE_ARDUINO_INTERRUPTS true //Enable Arduino interrupts to enable pulse sensor
+SoftwareSerial gsm(2,3); //Connect GSM RX to Arduino pin 3, TX to pin 2
+SoftwareSerial gps(0,1); //Connect GPS RX to Arduino pin 1, TX to pin 0 
+PulseSensorPlayground pulseSensor; //Declare pulse sensor object
+TinyGPSPlus gps; //Declare GPS object
+
+
+//Function to send a message
+void SendSMS(String Data1){     
+  gsm.print("AT+CMGF=1\r"); //Set GSM mode to SMS text mode
+  delay(2000);  
+  gsm.print("AT+CMGS=\"+917207851195\"\r"); //Phone number of the number to which message is sent
+  delay(2000);
+  gsm.print(Data1); //The message content to be sent 
+  delay(1000);
+  gsm.write(0x1A); //Equivalent to sending Ctrl+Z which is the message sending terminal character
+}
+
+
+//Function to setup the connections 
+void setup(){
+  pinMode(button,INPUT_PULLUP); //Configure button pin defined above as input pin
+  pinMode(pressure,INPUT);  //Configure pressure sensor pin defined above as input pin
+  pinMode(temp,INPUT); //Configure temperature sensor pin defined above as input pin
+  pinMode(buzzer, OUTPUT); //Configure buzzer pin defined above as output pin
+  pulseSensor.analogInput(PulseWire); //Configure buzzer pin defined above as input pin
+  Serial.begin(9600); //Set the serial communication baud rate to 9600 and start communication
+  gsm.begin(9600); //GSM communication speed baud rate set to 9600 and start communication
+  gps.begin(9600); //GPS communication speed baud rate set to 9600 and start communication
+  Serial.println("The gsm and GPS Received Signal:");
+  pulseSensor.begin() //Start the communication between pulse sensor and Arduino
+}
+
+
+
+
+
+
+void loop(){
+  int myBPM = pulseSensor.getBeatsPerMinute(); //Get the pulse sensor readings and convert it into beats per minute
+  delay(10);
+
+  // checks for button press or two/more sensors go high
+  if((digitalRead(button)==LOW) || (digitalRead(pressure)==LOW && digitalRead(temp)==LOW) || (digitalRead(temp)==LOW && digitalRead(pressure)==LOW) || (myBPM > 60 && digitalRead(temp)==LOW) || (digitalRead(pressure)==LOW && myBPM > 60)){ 
+
+    Serial.print("Sending SMS\n");
+    Serial.print("I am in danger please help me, please track my mobile\n");
+    String message = “I am in danger please help me, please track my mobile https://maps.google.com/maps?q=loc:” + gps.location.lat() + “,” + gps.location.lng();    // Message that needs to be sent
+    SendSMS(message); //Send SMS
+    tone(buzzer, 5000); // Send 1KHz sound signal on buzzer
+    delay(1000); 
+  }
+}
